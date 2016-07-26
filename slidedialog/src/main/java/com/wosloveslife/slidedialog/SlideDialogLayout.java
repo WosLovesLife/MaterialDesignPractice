@@ -7,38 +7,64 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
-import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.Scroller;
+
+import java.util.ArrayList;
 
 /**
- * Created by YesingBeijing on 2016/7/26.
+ * 两段式抽屉效果, 默认形态为部分显示, 上拉可完全展开, 下拉则收起.
+ * Created by WosLovesLife on 2016/7/26.
  */
 public class SlideDialogLayout extends FrameLayout {
     private static final String TAG = "SlideDialogLayout";
 
+    /** 滑动速度的临界值, 决定是否展开或收起滑动控件 */
     private static final int SLIDE_SENSITIVITY = 200;
 
-    private static final int STATE_PART = 0;
-    private static final int STATE_COMP = 1;
-    private static final int STATE_IDLE = 2;
+    /** 展开形态 部分展开 */
+    public static final int FORM_PART = 0;
+    /** 展开形态 全部展开 */
+    public static final int FORM_COMP = 1;
+    /** 展开形态 全部收起 */
+    public static final int FORM_FOLD = 2;
 
     // view
+    /** 滑动控件 */
     private ViewGroup mChildLayout;
 
     // controller
+    /** 控件拖动控制器 */
     private ViewDragHelper mDragHelper;
+    /** 手势识别控制器 */
     private GestureDetector mGestureDetector;
+    /** 对于形态变化的监听器集合 */
+    ArrayList<OnFormChangeListener> mOnFormChangeListeners = new ArrayList<>();
 
     // variable
-    /**  */
+    /** 滑动速度 */
     float mVelocityY;
+    /** 滑动控件距离本控件Top的距离 */
     int mTop;
+    /** 部分展开的临界值 */
     private int mStep1;
+    /** 本控件的高度 */
     private int mHeight;
+    /** 记录部分展开的位置 */
     private Point mPartPoint = new Point();
-    private int mCurrentState = STATE_PART;
+    /** 记录全部展开的位置 */
+    private Point mCompPoint = new Point();
+    /** 记录收起的位置 */
+    private Point mIdlePoint = new Point();
+    /** 当前的展开形态 */
+    private int mCurrentForm = FORM_PART;
+    /** 为true时,Form==FORM_FOLD则自动隐藏此控件 */
+    private boolean mAutoDismiss;
+    /** 为true时,可以从底边边缘滑出窗体 */
+    private boolean mEdgeTrackingEnabled;
+    private Scroller mScroller;
 
 
     public SlideDialogLayout(Context context) {
@@ -52,10 +78,11 @@ public class SlideDialogLayout extends FrameLayout {
     public SlideDialogLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-
         initGesture();
 
         initDragHelper();
+
+        mScroller = new Scroller(getContext());
     }
 
     private void initGesture() {
@@ -68,11 +95,10 @@ public class SlideDialogLayout extends FrameLayout {
         });
     }
 
+    /** 该控件的子节点必须有且只有一个ViewGroup类型的控件,拿到第一个控件, 如果控件超过一个 就抛出异常 */
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        Log.w(TAG, "onFinishInflate: ");
-
         mChildLayout = (ViewGroup) getChildAt(0);
     }
 
@@ -96,55 +122,90 @@ public class SlideDialogLayout extends FrameLayout {
             public int clampViewPositionVertical(View child, int top, int dy) {
                 final int topBound = getPaddingTop();
                 final int bottomBound = getHeight() - topBound;
-
                 return Math.min(Math.max(top, topBound), bottomBound);
             }
 
+            /** 当手指释放时,根据滑动速度和滑动距离进行展开或收起形态 */
             @Override
             public void onViewReleased(View releasedChild, float xvel, float yvel) {
                 super.onViewReleased(releasedChild, xvel, yvel);
 
-                Log.w(TAG, "onViewReleased: xvel = " + xvel + "; yvel = " + yvel);
-
                 if (releasedChild == mChildLayout) {
-                    /* 启用速度模拟,平滑移动到原始位置 */
-                    if (mTop < mStep1) {
-                        if (mVelocityY < -SLIDE_SENSITIVITY) {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, 0);
-                            mCurrentState = STATE_COMP;
-                        } else if (mVelocityY > SLIDE_SENSITIVITY) {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, mStep1);
-                            mCurrentState = STATE_PART;
-                        } else if (mTop < mHeight / 2) {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, 0);
-                        } else {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, mStep1);
-                        }
-                    } else {
-                        if (mVelocityY < -SLIDE_SENSITIVITY) {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, mStep1);
-                        } else if (mVelocityY > SLIDE_SENSITIVITY) {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, mHeight - 10);
-                        } else if (mTop < (mHeight - mStep1) / 2) {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, mStep1);
-                        } else {
-                            mDragHelper.settleCapturedViewAt(mPartPoint.x, mHeight - 10);
-                        }
-                    }
-                    invalidate();
+                    slide2Spread();
+                }
+            }
+
+            /** 记录Top值 */
+            @Override
+            public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
+                super.onViewPositionChanged(changedView, left, top, dx, dy);
+//                Log.w(TAG, "onViewPositionChanged: left = " + left + "; top = " + top + "; dx = " + dx + "; dy = " + dy);
+                if (changedView == mChildLayout) {
+                    mTop = top;
+                }
+
+                if (mAutoDismiss && top >= mHeight) {
+                    clearAnimation();
+                    mChildLayout.clearAnimation();
+                    setVisibility(GONE);
                 }
             }
 
             @Override
-            public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
-                super.onViewPositionChanged(changedView, left, top, dx, dy);
-                Log.w(TAG, "onViewPositionChanged: left = " + left + "; top = " + top + "; dx = " + dx + "; dy = " + dy);
+            public void onEdgeDragStarted(int edgeFlags, int pointerId) {
+                super.onEdgeDragStarted(edgeFlags, pointerId);
 
-                if (changedView == mChildLayout) {
-                    mTop = top;
+                if (mEdgeTrackingEnabled) {
+                    mDragHelper.captureChildView(mChildLayout, pointerId);
                 }
+                Log.w(TAG, "onEdgeDragStarted: ");
             }
         });
+    }
+
+    /** 处理滑动相关事件，根据速度和位置展开或收起滑动控件 */
+    private void slide2Spread() {
+        /* 移动范围在高度一半以上，则可能的形态为完全展开或部分展开 */
+        if (mTop < mStep1) {
+            if (mVelocityY < -SLIDE_SENSITIVITY) {
+                mCurrentForm = FORM_COMP;
+            } else if (mVelocityY > SLIDE_SENSITIVITY) {
+                mCurrentForm = FORM_PART;
+            } else if (mTop < mHeight / 2) {
+                mCurrentForm = FORM_COMP;
+            } else {
+                mCurrentForm = FORM_PART;
+            }
+        }
+        /* 移动范围在高度一半以下，则可能的形态为部分展开或完全收起 */
+        else {
+            if (mVelocityY < -SLIDE_SENSITIVITY) {
+                mCurrentForm = FORM_PART;
+            } else if (mVelocityY > SLIDE_SENSITIVITY) {
+                mCurrentForm = FORM_FOLD;
+            } else if (mTop < (mHeight - mStep1) / 2) {
+                mCurrentForm = FORM_PART;
+            } else {
+                mCurrentForm = FORM_FOLD;
+            }
+        }
+
+        /* 平滑展开或收起 */
+        if (mCurrentForm == FORM_PART) {
+            mDragHelper.settleCapturedViewAt(mPartPoint.x, mPartPoint.y);
+        } else if (mCurrentForm == FORM_COMP) {
+            mDragHelper.settleCapturedViewAt(mCompPoint.x, mCompPoint.y);
+        } else {
+            mDragHelper.settleCapturedViewAt(mIdlePoint.x, mIdlePoint.y);
+        }
+
+        /* 通知监听器 */
+        for (OnFormChangeListener l : mOnFormChangeListeners) {
+            l.onSlide(mCurrentForm);
+        }
+
+        /* 重绘控件位置 平滑移动至指定形态 */
+        invalidate();
     }
 
     /** 将拦截判断交给ViewDragHelper处理 */
@@ -157,32 +218,28 @@ public class SlideDialogLayout extends FrameLayout {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         mGestureDetector.onTouchEvent(event);
-
         mDragHelper.processTouchEvent(event);
-
         return true;
     }
 
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        Log.w(TAG, "onMeasure: ");
-    }
-
+    /** 设置每种形态的默认值 */
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
 
         mHeight = h;
-        mStep1 = h - h / 3;
-    }
+        mStep1 = mHeight - mHeight / 3;
 
-    @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
+        int left = mChildLayout.getLeft();
 
-        mPartPoint.x = mChildLayout.getLeft();
-        mPartPoint.y = mChildLayout.getTop();
+        mPartPoint.x = left;
+        mPartPoint.y = mStep1;
+
+        mCompPoint.x = left;
+        mCompPoint.y = mChildLayout.getTop();
+
+        mIdlePoint.x = left;
+        mIdlePoint.y = mHeight;
     }
 
     @Override
@@ -192,5 +249,86 @@ public class SlideDialogLayout extends FrameLayout {
         if (mDragHelper.continueSettling(true)) {
             invalidate();
         }
+
+        if (mScroller.computeScrollOffset()) {
+            scrollTo(0, mScroller.getCurrY());
+            invalidate();
+        }
+    }
+
+    // 对外提供控制方法
+
+    /**
+     * @param state 改变滑动控件的形态
+     * @see #FORM_PART 展开部分
+     * @see #FORM_COMP 完全展开
+     * @see #FORM_FOLD 完全收起
+     */
+    public void controlSpread(int state) {
+        int scrollY = mChildLayout.getScrollY();
+        Log.w(TAG, "controlSpread: state = " + state + "; mTop = " + mTop + "; scrollY = " + scrollY);
+        setVisibility(View.VISIBLE);
+        switch (state) {
+            case FORM_PART:
+                if (mCurrentForm != FORM_PART) {
+                    mCurrentForm = FORM_PART;
+
+                    mScroller.startScroll(0, -mTop, 0, -mPartPoint.y, 420);
+                    invalidate();
+                }
+                break;
+            case FORM_COMP:
+                if (mCurrentForm != FORM_COMP) {
+                    mCurrentForm = FORM_COMP;
+
+                    mScroller.startScroll(0, -mTop, 0, -mCompPoint.y, 420);
+                    invalidate();
+                }
+                break;
+            case FORM_FOLD:
+                if (mCurrentForm != FORM_FOLD) {
+                    mCurrentForm = FORM_FOLD;
+
+                    mScroller.startScroll(0, -mTop, 0, -mIdlePoint.y, 420);
+                    invalidate();
+                }
+                break;
+        }
+    }
+
+    public int getSpreadState() {
+        return mCurrentForm;
+    }
+
+    public void setEdgeTrackingEnabled(boolean fromBottom) {
+        mEdgeTrackingEnabled = fromBottom;
+        if (fromBottom) {
+            mDragHelper.setEdgeTrackingEnabled(ViewDragHelper.EDGE_BOTTOM);
+        }
+    }
+
+    public boolean getEdgeTrackingEnabled() {
+        return mEdgeTrackingEnabled;
+    }
+
+    public void setAutoDismissEnable(boolean autoDismiss) {
+        mAutoDismiss = autoDismiss;
+    }
+
+    public boolean getAutoDismissEnable() {
+        return mAutoDismiss;
+    }
+
+    // 对外提供事件监听
+    public interface OnFormChangeListener {
+        void onSlide(int form);
+    }
+
+    public void addOnFormChangeListener(OnFormChangeListener onFormChangeListener) {
+        mOnFormChangeListeners.add(onFormChangeListener);
+    }
+
+    public void removeOnFormChangeListener(OnFormChangeListener onFormChangeListener) {
+        mOnFormChangeListeners.remove(onFormChangeListener);
     }
 }
