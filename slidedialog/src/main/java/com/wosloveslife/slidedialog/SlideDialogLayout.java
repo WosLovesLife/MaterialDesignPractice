@@ -10,7 +10,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.Scroller;
 
 import java.util.ArrayList;
 
@@ -57,15 +56,13 @@ public class SlideDialogLayout extends FrameLayout {
     /** 记录全部展开的位置 */
     private Point mCompPoint = new Point();
     /** 记录收起的位置 */
-    private Point mIdlePoint = new Point();
+    private Point mFoldPoint = new Point();
     /** 当前的展开形态 */
     private int mCurrentForm = FORM_PART;
     /** 为true时,Form==FORM_FOLD则自动隐藏此控件 */
     private boolean mAutoDismiss;
     /** 为true时,可以从底边边缘滑出窗体 */
     private boolean mEdgeTrackingEnabled;
-    private Scroller mScroller;
-
 
     public SlideDialogLayout(Context context) {
         this(context, null);
@@ -81,8 +78,6 @@ public class SlideDialogLayout extends FrameLayout {
         initGesture();
 
         initDragHelper();
-
-        mScroller = new Scroller(getContext());
     }
 
     private void initGesture() {
@@ -196,7 +191,7 @@ public class SlideDialogLayout extends FrameLayout {
         } else if (mCurrentForm == FORM_COMP) {
             mDragHelper.settleCapturedViewAt(mCompPoint.x, mCompPoint.y);
         } else {
-            mDragHelper.settleCapturedViewAt(mIdlePoint.x, mIdlePoint.y);
+            mDragHelper.settleCapturedViewAt(mFoldPoint.x, mFoldPoint.y);
         }
 
         /* 通知监听器 */
@@ -230,16 +225,16 @@ public class SlideDialogLayout extends FrameLayout {
         mHeight = h;
         mStep1 = mHeight - mHeight / 3;
 
-        int left = mChildLayout.getLeft();
+        int left = getLeft();
 
         mPartPoint.x = left;
         mPartPoint.y = mStep1;
 
         mCompPoint.x = left;
-        mCompPoint.y = mChildLayout.getTop();
+        mCompPoint.y = getTop();
 
-        mIdlePoint.x = left;
-        mIdlePoint.y = mHeight;
+        mFoldPoint.x = left;
+        mFoldPoint.y = mHeight;
     }
 
     @Override
@@ -247,11 +242,6 @@ public class SlideDialogLayout extends FrameLayout {
         super.computeScroll();
 
         if (mDragHelper.continueSettling(true)) {
-            invalidate();
-        }
-
-        if (mScroller.computeScrollOffset()) {
-            scrollTo(0, mScroller.getCurrY());
             invalidate();
         }
     }
@@ -270,28 +260,19 @@ public class SlideDialogLayout extends FrameLayout {
         setVisibility(View.VISIBLE);
         switch (state) {
             case FORM_PART:
-                if (mCurrentForm != FORM_PART) {
-                    mCurrentForm = FORM_PART;
-
-                    mScroller.startScroll(0, -mTop, 0, -mPartPoint.y, 420);
-                    invalidate();
-                }
+                mDragHelper.smoothSlideViewTo(mChildLayout, mPartPoint.x, mPartPoint.y);
+                mCurrentForm = FORM_PART;
+                invalidate();
                 break;
             case FORM_COMP:
-                if (mCurrentForm != FORM_COMP) {
-                    mCurrentForm = FORM_COMP;
-
-                    mScroller.startScroll(0, -mTop, 0, -mCompPoint.y, 420);
-                    invalidate();
-                }
+                mDragHelper.smoothSlideViewTo(mChildLayout, mCompPoint.x, mCompPoint.y);
+                mCurrentForm = FORM_COMP;
+                invalidate();
                 break;
             case FORM_FOLD:
-                if (mCurrentForm != FORM_FOLD) {
-                    mCurrentForm = FORM_FOLD;
-
-                    mScroller.startScroll(0, -mTop, 0, -mIdlePoint.y, 420);
-                    invalidate();
-                }
+                mDragHelper.smoothSlideViewTo(mChildLayout, mFoldPoint.x, mFoldPoint.y);
+                mCurrentForm = FORM_FOLD;
+                invalidate();
                 break;
         }
     }
