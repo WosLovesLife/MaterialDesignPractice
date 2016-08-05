@@ -22,8 +22,6 @@ public class MainActivity extends AppCompatActivity {
         mSlideDialogLayout.addOnFormChangeListener(new SlideDialogLayout.OnFormChangeListener() {
             @Override
             public void onSlide(int form) {
-                if (form == SlideDialogLayout.FORM_FOLD) {
-                }
             }
         });
 
@@ -32,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 int spreadState = SlideDialogLayout.FORM_PART;
-                switch (mSlideDialogLayout.getSpreadState()) {
+                switch (mSlideDialogLayout.getForm()) {
                     case SlideDialogLayout.FORM_PART:
                         spreadState = SlideDialogLayout.FORM_COMP;
                         break;
@@ -43,9 +41,10 @@ public class MainActivity extends AppCompatActivity {
                         spreadState = SlideDialogLayout.FORM_PART;
                         break;
                 }
-                mSlideDialogLayout.controlSpread(spreadState);
+                mSlideDialogLayout.controlForm(spreadState);
             }
         });
+        mSlideDialogLayout.controlForm(SlideDialogLayout.FORM_PART);
 
         CheckBox edgeTouch = (CheckBox) findViewById(R.id.id_cb_edge_enable);
         edgeTouch.setChecked(mSlideDialogLayout.getEdgeTrackingEnabled());

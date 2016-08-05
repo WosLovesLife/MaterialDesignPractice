@@ -4,6 +4,10 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/MaterialDesignPractice.iml" filepath="$PROJECT_DIR$/MaterialDesignPractice.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/baserecyclerview/baserecyclerview.iml" filepath="$PROJECT_DIR$/baserecyclerview/baserecyclerview.iml" />
+      <module fileurl="file://$PROJECT_DIR$/material_ripple/material_ripple.iml" filepath="$PROJECT_DIR$/material_ripple/material_ripple.iml" />
+      <module fileurl="file://$PROJECT_DIR$/material_searchview/material_searchview.iml" filepath="$PROJECT_DIR$/material_searchview/material_searchview.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ripple/ripple.iml" filepath="$PROJECT_DIR$/ripple/ripple.iml" />
       <module fileurl="file://$PROJECT_DIR$/slidedialog/slidedialog.iml" filepath="$PROJECT_DIR$/slidedialog/slidedialog.iml" />
       <module fileurl="file://$PROJECT_DIR$/transitionsanimator/transitionsanimator.iml" filepath="$PROJECT_DIR$/transitionsanimator/transitionsanimator.iml" />
     </modules>

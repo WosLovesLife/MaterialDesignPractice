@@ -1,1 +1,1 @@
-include ':app', ':transitionsanimator', ':slidedialog'
+include ':app', ':transitionsanimator', ':slidedialog', ':material_searchview', ':ripple', ':material_ripple', ':baserecyclerview'

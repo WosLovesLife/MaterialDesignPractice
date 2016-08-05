@@ -9,6 +9,10 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/baserecyclerview" />
+            <option value="$PROJECT_DIR$/material_ripple" />
+            <option value="$PROJECT_DIR$/material_searchview" />
+            <option value="$PROJECT_DIR$/ripple" />
             <option value="$PROJECT_DIR$/slidedialog" />
             <option value="$PROJECT_DIR$/transitionsanimator" />
           </set>
@@ -17,6 +21,10 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/baserecyclerview" />
+            <option value="$PROJECT_DIR$/material_ripple" />
+            <option value="$PROJECT_DIR$/material_searchview" />
+            <option value="$PROJECT_DIR$/ripple" />
             <option value="$PROJECT_DIR$/slidedialog" />
             <option value="$PROJECT_DIR$/transitionsanimator" />
           </set>

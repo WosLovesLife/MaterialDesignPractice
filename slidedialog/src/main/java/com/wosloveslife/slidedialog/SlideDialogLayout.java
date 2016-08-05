@@ -1,7 +1,9 @@
 package com.wosloveslife.slidedialog;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.drawable.Drawable;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -63,6 +65,8 @@ public class SlideDialogLayout extends FrameLayout {
     private boolean mAutoDismiss;
     /** 为true时,可以从底边边缘滑出窗体 */
     private boolean mEdgeTrackingEnabled;
+    /** 中间半透明层, 随着展开幅度透明度加深 */
+    private Drawable mBackground;
 
     public SlideDialogLayout(Context context) {
         this(context, null);
@@ -75,9 +79,18 @@ public class SlideDialogLayout extends FrameLayout {
     public SlideDialogLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
+        init();
+
         initGesture();
 
         initDragHelper();
+    }
+
+    private void init() {
+        /* 设置中间层背景半透明层 让背景颜色随着滑动控件的展开而透明度加深 */
+        setBackgroundColor(Color.parseColor("#28292b2b"));
+        mBackground = getBackground();
+        mBackground.setAlpha(0);
     }
 
     private void initGesture() {
@@ -137,8 +150,14 @@ public class SlideDialogLayout extends FrameLayout {
 //                Log.w(TAG, "onViewPositionChanged: left = " + left + "; top = " + top + "; dx = " + dx + "; dy = " + dy);
                 if (changedView == mChildLayout) {
                     mTop = top;
+                    if (mTop != 0) {
+                        int alpha = (int) (255 - 255 * ((mTop+0.0f) / mHeight));
+                        Log.w(TAG, "onViewPositionChanged: top = " + top + "; alpha = " + alpha);
+                        mBackground.setAlpha(alpha);
+                    }
                 }
 
+                /* 如果设置收起形态时移出该View,则在满足条件时收起时设置Visible为GONE */
                 if (mAutoDismiss && top >= mHeight) {
                     clearAnimation();
                     mChildLayout.clearAnimation();
@@ -238,6 +257,14 @@ public class SlideDialogLayout extends FrameLayout {
     }
 
     @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        mChildLayout.layout(left, bottom, right, bottom + bottom);
+
+        controlForm(FORM_PART);
+    }
+
+    @Override
     public void computeScroll() {
         super.computeScroll();
 
@@ -254,7 +281,7 @@ public class SlideDialogLayout extends FrameLayout {
      * @see #FORM_COMP 完全展开
      * @see #FORM_FOLD 完全收起
      */
-    public void controlSpread(int state) {
+    public void controlForm(int state) {
         int scrollY = mChildLayout.getScrollY();
         Log.w(TAG, "controlSpread: state = " + state + "; mTop = " + mTop + "; scrollY = " + scrollY);
         setVisibility(View.VISIBLE);
@@ -277,10 +304,12 @@ public class SlideDialogLayout extends FrameLayout {
         }
     }
 
-    public int getSpreadState() {
+    /** 获取当前形态 */
+    public int getForm() {
         return mCurrentForm;
     }
 
+    /** 设置是否启用底边边缘触摸滑出功能 */
     public void setEdgeTrackingEnabled(boolean fromBottom) {
         mEdgeTrackingEnabled = fromBottom;
         if (fromBottom) {
@@ -288,6 +317,7 @@ public class SlideDialogLayout extends FrameLayout {
         }
     }
 
+    /** 设置 */
     public boolean getEdgeTrackingEnabled() {
         return mEdgeTrackingEnabled;
     }
@@ -306,7 +336,8 @@ public class SlideDialogLayout extends FrameLayout {
     }
 
     public void addOnFormChangeListener(OnFormChangeListener onFormChangeListener) {
-        mOnFormChangeListeners.add(onFormChangeListener);
+        if (onFormChangeListener != null)
+            mOnFormChangeListeners.add(onFormChangeListener);
     }
 
     public void removeOnFormChangeListener(OnFormChangeListener onFormChangeListener) {

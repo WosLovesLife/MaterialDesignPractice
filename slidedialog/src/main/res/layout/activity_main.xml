@@ -37,7 +37,6 @@
         <com.wosloveslife.slidedialog.SlideDialogLayout
             android:id="@+id/id_sdl_spread"
             android:layout_width="match_parent"
-            android:background="#1e3d403f"
             android:layout_height="match_parent">
 
             <LinearLayout
